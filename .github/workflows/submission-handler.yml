@@ -2,7 +2,7 @@ name: Submission Handler
 
 on:
   issues:
-    types: [opened, closed]
+    types: [opened, closed, labeled]
 
 jobs:
   handle-submission:
@@ -14,13 +14,23 @@ jobs:
     steps:
       - name: Check if submission issue
         id: check-submission
-        run: |
-          LABELS="${{ join(github.event.issue.labels.*.name, ',') }}"
-          if [[ "$LABELS" == *"submission"* ]]; then
-            echo "is_submission=true" >> $GITHUB_OUTPUT
-          else
-            echo "is_submission=false" >> $GITHUB_OUTPUT
-          fi
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const labels = issue.labels.map(l => l.name);
+            const title = issue.title || '';
+            const body = issue.body || '';
+            
+            // Check if this is a submission issue by labels or title pattern
+            const isSubmission = labels.includes('submission') || 
+                                 title.includes('[SUBMISSION]') ||
+                                 body.includes('T-Shirt Size');
+            
+            console.log(`Labels: ${labels.join(', ')}`);
+            console.log(`Is submission: ${isSubmission}`);
+            
+            core.setOutput('is_submission', isSubmission.toString());
           
       - name: Handle New Submission
         if: github.event.action == 'opened' && steps.check-submission.outputs.is_submission == 'true'
